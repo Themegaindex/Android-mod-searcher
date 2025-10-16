@@ -15,12 +15,29 @@ WEBSITES = [
 ]
 
 def search_site(query, site):
-    """Performs a search for the query on a specific site using DuckDuckGo search."""
+    """
+    Performs a more precise search and filters the results for relevance.
+    """
     try:
-        search_query = f"{query} site:{site}"
+        # Enclose query in quotes for a more exact search
+        search_query = f'"{query}" site:{site}'
+
+        unfiltered_results = []
         with DDGS() as ddgs:
-            results = list(ddgs.text(search_query, max_results=5))
-        return results
+            # Fetch results from DuckDuckGo
+            unfiltered_results = list(ddgs.text(search_query, max_results=10)) # Fetch more results to have a better chance after filtering
+
+        # Filter results to ensure the query term is present in the title or body
+        filtered_results = []
+        for result in unfiltered_results:
+            title = result.get('title', '').lower()
+            body = result.get('body', '').lower()
+            if query.lower() in title or query.lower() in body:
+                filtered_results.append(result)
+
+        # Return only the top 5 most relevant results
+        return filtered_results[:5]
+
     except Exception as e:
         console.print(f"Error during search on {site}: {e}", style="bold red")
         return []
@@ -30,7 +47,6 @@ if __name__ == "__main__":
 
     console.print(Panel("Welcome to the CLI Search Wizard!", title="[bold green]Virgil Search[/bold green]", expand=False))
 
-    # Check if a query was passed as an argument, otherwise prompt the user
     parser = argparse.ArgumentParser(description="Search for content on specific websites.")
     parser.add_argument("query", nargs='?', default=None, help="The search query.")
     args = parser.parse_args()
