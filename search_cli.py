@@ -1,9 +1,13 @@
 import argparse
+import webbrowser
+import questionary
 from ddgs import DDGS
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
-from rich.prompt import Prompt
+from rich.table import Table
+
+# Initialize the Rich Console
+console = Console()
 
 # List of websites to search. Easy to extend in the future.
 WEBSITES = [
@@ -42,32 +46,60 @@ def search_site(query, site):
         console.print(f"Error during search on {site}: {e}", style="bold red")
         return []
 
-if __name__ == "__main__":
-    console = Console()
-
+def main():
+    """
+    Main function to run the CLI search tool.
+    """
     console.print(Panel("Welcome to the CLI Search Wizard!", title="[bold green]Virgil Search[/bold green]", expand=False))
 
     parser = argparse.ArgumentParser(description="Search for content on specific websites.")
     parser.add_argument("query", nargs='?', default=None, help="The search query.")
+    parser.add_argument("--sites", nargs='+', choices=WEBSITES, default=WEBSITES, help="Specify the websites to search.")
     args = parser.parse_args()
 
     if args.query:
         query = args.query
     else:
-        query = Prompt.ask("[bold yellow]What would you like to search for?[/bold yellow]")
+        query = questionary.text("What would you like to search for?").ask()
 
+    if not query:
+        console.print("[bold red]No search query entered. Exiting.[/bold red]")
+        return
+
+    all_results = []
     with console.status(f"[bold green]Searching for '{query}'...[/]") as status:
-        for site in WEBSITES:
-            console.print(f"\n[bold cyan]--- Searching on {site} ---[/bold cyan]")
+        for site in args.sites:
+            status.update(f"[bold green]Searching on {site}...[/]")
             search_results = search_site(query, site)
-
             if search_results:
-                for i, result in enumerate(search_results, 1):
-                    title = Text(f"{i}. {result['title']}", style="bold blue")
-                    link = Text(result['href'], style="green")
-                    console.print(title)
-                    console.print(link)
-            else:
-                console.print("[italic red]No results found.[/italic red]")
+                all_results.extend(search_results)
 
-    console.print("\n[bold green]Search complete![/bold green]")
+    if all_results:
+        table = Table(title=f"Search Results for '{query}'", show_header=True, header_style="bold magenta")
+        table.add_column("Title", style="bold blue")
+        table.add_column("Link", style="green")
+
+        for result in all_results:
+            table.add_row(result['title'], result['href'])
+
+        console.print(table)
+
+        console.print("\n[bold green]Select a result to open:[/bold green]")
+
+        choices = [f"{result['title']} ({result['href']})" for result in all_results]
+        selected_result_str = questionary.select(
+            "Choose a link to open (or press Ctrl+C to exit):",
+            choices=choices
+        ).ask()
+
+        if selected_result_str:
+            # Find the corresponding result dictionary
+            selected_result = next((r for r in all_results if f"{r['title']} ({r['href']})" == selected_result_str), None)
+            if selected_result:
+                webbrowser.open(selected_result['href'])
+                console.print(f"Opening {selected_result['href']} in your browser.")
+    else:
+        console.print("\n[bold yellow]No results found across all sites.[/bold yellow]")
+
+if __name__ == "__main__":
+    main()
