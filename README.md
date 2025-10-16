@@ -1,57 +1,67 @@
-<p align="center">
-  <img src="https://i.ibb.co/0jrgNDpx/no-bg-image-6.png" alt="Centered Image" width="400"/>
-</p>
+# Virgil CLI Search
 
+This is a powerful command-line search tool that allows you to search for content across a curated list of websites. It's designed to be fast, efficient, and easy to use, providing a clean and colorful interface right in your terminal.
 
-<h1 align="center"> Virgil Search Engine. </h1>
+## Features
 
-Virgil Is an actively maintained search platform.
-Virgil's main purpose is simple: Use Safe Sources. We only use sources listed on [FMHY](https://fmhy.net) And the list is always up to par with FMHY.
+- **CLI Interface:** A simple and intuitive command-line interface.
+- **Multi-site Search:** Searches across multiple websites simultaneously.
+- **Colorful Output:** Uses the `rich` library to provide a beautiful and readable output.
+- **Easy to Extend:** The list of websites to search is easily configurable.
+- **Two Modes of Operation:** Run it with a search query as an argument for quick searches, or run it without arguments for an interactive "wizard" mode.
 
-<p align="center">
-  <img src="https://files.catbox.moe/pfwyaf.png" alt="Centered Image"/>
-</p>
-<h6>Image of Virgil Game Search</h6>
+## Installation
 
-https://github.com/user-attachments/assets/95e875c7-e074-44e4-81f8-ea51cc615019
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
 
-<h6>Video of Virgil Game Search</h6>
+2.  **Install the dependencies:**
+    Make sure you have Python 3 installed. Then, run the following command to install the necessary libraries:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
+## Usage
 
+You can use the tool in two ways:
 
-# Features
-- Helps find Download Links For Games, Software ETC.
-- Only indexes links Tested by FMHY, a trusted, highly vetted megathread
-- Uses Google search indexing to provide results quickly
-- Minimalist UI
+### 1. Direct Search
 
-## Setting-up Quick Search/Bangs On Your Browser
-1. Visit the Search Engine settings on your browser
-2. Click the '+', 'add new search engine' button (or an equivallent on your browser)
-3. Fill in the required information:
-  - Name: Anything you want, But we prefer "Virgil Game Search" for game search, and "Virgil Software Search" for software search
-  - Nickname: Anything you want, But we prefer "Virgil"
-  - URL:
-  * For Game Search: https://virgil.samidy.com/Games/?q=%s
-  * For Software Search: https://virgil.samidy.com/Software/?q=%s
-  * please note that the '%s' keyword substitute may be different across browsers, kindly follow the instructions provided on your browser to replace if needed.
+Provide the search query as a command-line argument:
 
+```bash
+python search_cli.py "Your Search Query"
+```
 
-## Indexed Websites
-We mainly take from [FMHY](https://fmhy.net), So check their [Game List](https://fmhy.net/gaming) for Game Search and [Software List](https://fmhy.net/downloading#software-sites) For software Search.
+For example:
+```bash
+python search_cli.py "Max Payne"
+```
 
+### 2. Interactive Mode
 
-## Copyright/DMCA/Legal Issues
-Virgil is a scraper/aggregator for other sites.
-All data is sourced from third-party platforms.
-We don't host any files nor endorse any of these sites in any way.
-Take any legal issues up with them. ♥ 
+Simply run the script without any arguments to enter the interactive mode. The script will then prompt you to enter your search query.
 
+```bash
+python search_cli.py
+```
 
-## WARNING
-Use an Adblocker Before visiting ANY Of the sites Indexed! Follow FMHY's [Beginners Guide.](https://fmhy.net/beginners-guide)
+## How to Add More Websites
 
-#### Do note the project is still a HEAVY work in progress. the project Could get a whole rewrite soon.
-Current Version: Alpha
+This tool is designed to be easily extensible. To add more websites to the search list, simply open the `search_cli.py` file and add the new website's domain to the `WEBSITES` list.
 
-### Happy... uh.. Pirating!
+For example, to add `example.com` to the search, modify the list like this:
+
+```python
+WEBSITES = [
+    "forum.mobilism.org",
+    "4pda.to",
+    "rockmods.net",
+    "pdalife.com",
+    "an1.com",
+    "example.com",  # Add your new website here
+]
+```
