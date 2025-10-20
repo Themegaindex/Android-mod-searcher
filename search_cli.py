@@ -6,11 +6,30 @@ from ddgs import DDGS
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
+from rich.align import Align
+from rich import box
 
 # Initialize the Rich Console
 console = Console()
 
-# List of websites to search. Easy to extend in the future.
+# ASCII Art Banner
+BANNER = """
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ██╗   ██╗██╗██████╗  ██████╗ ██╗██╗         ║
+║   ██║   ██║██║██╔══██╗██╔════╝ ██║██║         ║
+║   ██║   ██║██║██████╔╝██║  ███╗██║██║         ║
+║   ╚██╗ ██╔╝██║██╔══██╗██║   ██║██║██║         ║
+║    ╚████╔╝ ██║██║  ██║╚██████╔╝██║███████╗    ║
+║     ╚═══╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝╚══════╝    ║
+║                                                               ║
+║           🔍  Advanced APK Search Engine  🔍                  ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+"""
+
+# List of websites to search
 WEBSITES = [
     "forum.mobilism.org",
     "4pda.to",
@@ -19,20 +38,35 @@ WEBSITES = [
     "an1.com",
 ]
 
+SITE_EMOJIS = {
+    "forum.mobilism.org": "📱",
+    "4pda.to": "🇷🇺",
+    "rockmods.net": "🎸",
+    "pdalife.com": "💎",
+    "an1.com": "🌐",
+}
+
+def print_banner():
+    """Display the fancy ASCII banner"""
+    console.print(BANNER, style="bold cyan", highlight=False)
+    console.print(
+        Align.center("═" * 63),
+        style="bold blue"
+    )
+    console.print()
+
 def search_site(query, site):
     """
     Performs a more precise search and filters the results for relevance.
     """
     try:
-        # Enclose query in quotes for a more exact search
         search_query = f'"{query}" site:{site}'
-
         unfiltered_results = []
+        
         with DDGS() as ddgs:
-            # Fetch results from DuckDuckGo
-            unfiltered_results = list(ddgs.text(search_query, max_results=10)) # Fetch more results to have a better chance after filtering
+            unfiltered_results = list(ddgs.text(search_query, max_results=10))
 
-        # Filter results to ensure the query term is present in the title or body
+        # Filter results
         filtered_results = []
         for result in unfiltered_results:
             title = result.get('title', '').lower()
@@ -40,18 +74,39 @@ def search_site(query, site):
             if query.lower() in title or query.lower() in body:
                 filtered_results.append(result)
 
-        # Return only the top 5 most relevant results
         return filtered_results[:5]
 
     except Exception as e:
-        console.print(f"Error during search on {site}: {e}", style="bold red")
+        console.print(
+            Panel(
+                f"❌ Error: {e}",
+                title=f"[bold red]Search Failed on {site}[/bold red]",
+                border_style="red",
+                box=box.DOUBLE
+            )
+        )
         return []
+
+def display_search_info(query, sites):
+    """Display search information in a nice panel"""
+    sites_text = "\n".join([f"  {SITE_EMOJIS.get(site, '•')} {site}" for site in sites])
+    
+    info_panel = Panel(
+        f"[bold white]Query:[/bold white] [cyan]{query}[/cyan]\n\n"
+        f"[bold white]Searching on:[/bold white]\n{sites_text}",
+        title="[bold green]🔎 Search Configuration[/bold green]",
+        border_style="green",
+        box=box.DOUBLE_EDGE,
+        padding=(1, 2)
+    )
+    console.print(info_panel)
+    console.print()
 
 def main():
     """
     Main function to run the CLI search tool.
     """
-    console.print(Panel("Welcome to the CLI Search Wizard!", title="[bold green]Virgil Search[/bold green]", expand=False))
+    print_banner()
 
     parser = argparse.ArgumentParser(description="Search for content on specific websites.")
     parser.add_argument("query", nargs='?', default=None, help="The search query.")
@@ -59,55 +114,150 @@ def main():
     args = parser.parse_args()
 
     query = args.query
+    
     # Only prompt for input if running in an interactive terminal
     if not query and sys.stdout.isatty():
-        query = questionary.text("What would you like to search for?").ask()
+        console.print("┌─────────────────────────────────────────┐", style="bold cyan")
+        query = questionary.text(
+            "│ 🔍 What would you like to search for?",
+            qmark="└─►"
+        ).ask()
+        console.print("└─────────────────────────────────────────┘\n", style="bold cyan")
     elif not query:
-        console.print("[bold red]No search query provided. Use 'python search_cli.py \"<your query>\"'[/bold red]")
+        console.print(
+            Panel(
+                "❌ No search query provided.\n\n"
+                "Usage: [bold cyan]python search_cli.py \"<your query>\"[/bold cyan]",
+                title="[bold red]Error[/bold red]",
+                border_style="red",
+                box=box.HEAVY
+            )
+        )
         return
 
     if not query:
-        console.print("[bold red]No search query entered. Exiting.[/bold red]")
+        console.print(
+            Panel(
+                "⚠️  No search query entered.",
+                title="[bold yellow]Warning[/bold yellow]",
+                border_style="yellow"
+            )
+        )
         return
 
+    display_search_info(query, args.sites)
+
     all_results = []
-    with console.status(f"[bold green]Searching for '{query}'...[/]") as status:
-        for site in args.sites:
-            status.update(f"[bold green]Searching on {site}...[/]")
+    
+    # Search with animated status
+    console.print("╔═══════════════════════════════════════════════════════════════╗", style="bold magenta")
+    console.print("║              🚀 Initiating Search Process...                  ║", style="bold magenta")
+    console.print("╚═══════════════════════════════════════════════════════════════╝\n", style="bold magenta")
+    
+    with console.status("[bold green]⚡ Searching...[/]", spinner="dots") as status:
+        for idx, site in enumerate(args.sites, 1):
+            emoji = SITE_EMOJIS.get(site, "•")
+            status.update(f"[bold cyan]{emoji} [{idx}/{len(args.sites)}] Searching on {site}...[/]")
             search_results = search_site(query, site)
             if search_results:
                 all_results.extend(search_results)
+                console.print(f"  ✓ {emoji} {site}: [green]{len(search_results)} results found[/green]")
+            else:
+                console.print(f"  ○ {emoji} {site}: [dim]no results[/dim]")
+
+    console.print()
+    console.print("─" * 63, style="bold blue")
+    console.print()
 
     if all_results:
-        table = Table(title=f"Search Results for '{query}'", show_header=True, header_style="bold magenta")
-        table.add_column("Title", style="bold blue")
-        table.add_column("Link", style="green")
+        # Create beautiful results table
+        table = Table(
+            title=f"✨ Search Results for '{query}' ✨",
+            title_style="bold magenta",
+            show_header=True,
+            header_style="bold cyan",
+            border_style="blue",
+            box=box.DOUBLE_EDGE,
+            show_lines=True,
+            padding=(0, 1)
+        )
+        
+        table.add_column("№", style="bold yellow", width=4, justify="center")
+        table.add_column("📌 Title", style="bold white", no_wrap=False)
+        table.add_column("🔗 Link", style="green", no_wrap=False)
 
-        for result in all_results:
-            table.add_row(result['title'], result['href'])
+        for idx, result in enumerate(all_results, 1):
+            table.add_row(
+                str(idx),
+                result['title'],
+                result['href']
+            )
 
         console.print(table)
+        console.print()
 
         # Only prompt for selection if running in an interactive terminal
         if sys.stdout.isatty():
-            console.print("\n[bold green]Select a result to open:[/bold green]")
+            console.print(
+                Panel(
+                    "👇 Select a result to open in your browser",
+                    style="bold green",
+                    box=box.ROUNDED
+                )
+            )
+            console.print()
 
-            choices = [f"{result['title']} ({result['href']})" for result in all_results]
+            choices = [f"{i+1}. {result['title']}" for i, result in enumerate(all_results)]
+            
             selected_result_str = questionary.select(
-                "Choose a link to open (or press Ctrl+C to exit):",
-                choices=choices
+                "Choose a link:",
+                choices=choices,
+                qmark="🎯",
+                pointer="►"
             ).ask()
 
             if selected_result_str:
-                # Find the corresponding result dictionary
-                selected_result = next((r for r in all_results if f"{r['title']} ({r['href']})" == selected_result_str), None)
-                if selected_result:
-                    webbrowser.open(selected_result['href'])
-                    console.print(f"Opening {selected_result['href']} in your browser.")
+                idx = int(selected_result_str.split('.')[0]) - 1
+                selected_result = all_results[idx]
+                
+                console.print()
+                console.print(
+                    Panel(
+                        f"🌐 Opening: [cyan]{selected_result['href']}[/cyan]",
+                        title="[bold green]✓ Success[/bold green]",
+                        border_style="green",
+                        box=box.DOUBLE
+                    )
+                )
+                webbrowser.open(selected_result['href'])
         else:
-            console.print("\n[bold yellow]Non-interactive mode. Cannot select a link to open.[/bold yellow]")
+            console.print(
+                Panel(
+                    "⚠️  Non-interactive mode. Cannot select a link to open.",
+                    title="[bold yellow]Info[/bold yellow]",
+                    border_style="yellow"
+                )
+            )
     else:
-        console.print("\n[bold yellow]No results found across all sites.[/bold yellow]")
+        console.print(
+            Panel(
+                "😔 No results found across all sites.\n\n"
+                "💡 Try:\n"
+                "  • Using different keywords\n"
+                "  • Checking your spelling\n"
+                "  • Using more general terms",
+                title="[bold yellow]⚠️  No Results[/bold yellow]",
+                border_style="yellow",
+                box=box.HEAVY,
+                padding=(1, 2)
+            )
+        )
+
+    # Closing banner
+    console.print()
+    console.print("╔═══════════════════════════════════════════════════════════════╗", style="bold cyan")
+    console.print("║                   Thanks for using Virgil! 🚀                 ║", style="bold cyan")
+    console.print("╚═══════════════════════════════════════════════════════════════╝", style="bold cyan")
 
 if __name__ == "__main__":
     main()
