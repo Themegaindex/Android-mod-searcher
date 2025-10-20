@@ -1,4 +1,5 @@
 import argparse
+import sys
 import webbrowser
 import questionary
 from ddgs import DDGS
@@ -57,10 +58,13 @@ def main():
     parser.add_argument("--sites", nargs='+', choices=WEBSITES, default=WEBSITES, help="Specify the websites to search.")
     args = parser.parse_args()
 
-    if args.query:
-        query = args.query
-    else:
+    query = args.query
+    # Only prompt for input if running in an interactive terminal
+    if not query and sys.stdout.isatty():
         query = questionary.text("What would you like to search for?").ask()
+    elif not query:
+        console.print("[bold red]No search query provided. Use 'python search_cli.py \"<your query>\"'[/bold red]")
+        return
 
     if not query:
         console.print("[bold red]No search query entered. Exiting.[/bold red]")
@@ -84,20 +88,24 @@ def main():
 
         console.print(table)
 
-        console.print("\n[bold green]Select a result to open:[/bold green]")
+        # Only prompt for selection if running in an interactive terminal
+        if sys.stdout.isatty():
+            console.print("\n[bold green]Select a result to open:[/bold green]")
 
-        choices = [f"{result['title']} ({result['href']})" for result in all_results]
-        selected_result_str = questionary.select(
-            "Choose a link to open (or press Ctrl+C to exit):",
-            choices=choices
-        ).ask()
+            choices = [f"{result['title']} ({result['href']})" for result in all_results]
+            selected_result_str = questionary.select(
+                "Choose a link to open (or press Ctrl+C to exit):",
+                choices=choices
+            ).ask()
 
-        if selected_result_str:
-            # Find the corresponding result dictionary
-            selected_result = next((r for r in all_results if f"{r['title']} ({r['href']})" == selected_result_str), None)
-            if selected_result:
-                webbrowser.open(selected_result['href'])
-                console.print(f"Opening {selected_result['href']} in your browser.")
+            if selected_result_str:
+                # Find the corresponding result dictionary
+                selected_result = next((r for r in all_results if f"{r['title']} ({r['href']})" == selected_result_str), None)
+                if selected_result:
+                    webbrowser.open(selected_result['href'])
+                    console.print(f"Opening {selected_result['href']} in your browser.")
+        else:
+            console.print("\n[bold yellow]Non-interactive mode. Cannot select a link to open.[/bold yellow]")
     else:
         console.print("\n[bold yellow]No results found across all sites.[/bold yellow]")
 
