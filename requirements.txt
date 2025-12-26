@@ -3,3 +3,5 @@ beautifulsoup4
 rich
 ddgs
 questionary
+llama-cpp-python
+huggingface_hub
