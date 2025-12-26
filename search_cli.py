@@ -2,6 +2,7 @@ import argparse
 import sys
 import webbrowser
 import questionary
+import os
 from ddgs import DDGS
 from rich.console import Console
 from rich.panel import Panel
@@ -9,9 +10,22 @@ from rich.table import Table
 from rich.text import Text
 from rich.align import Align
 from rich import box
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+# AI Imports
+try:
+    from llama_cpp import Llama
+    from huggingface_hub import hf_hub_download
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
 
 # Initialize the Rich Console
 console = Console()
+
+# AI Configuration
+MODEL_REPO = "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+MODEL_FILENAME = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
 
 # ASCII Art Banner
 BANNER = """
@@ -55,6 +69,89 @@ def print_banner():
     )
     console.print()
 
+def get_model():
+    """Download and load the AI model"""
+    if not AI_AVAILABLE:
+        return None
+
+    try:
+        model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILENAME)
+        return Llama(
+            model_path=model_path,
+            n_ctx=2048,
+            verbose=False,
+            n_gpu_layers=0  # Run on CPU
+        )
+    except Exception as e:
+        console.print(f"[bold red]Failed to load AI model:[/bold red] {e}")
+        return None
+
+def evaluate_result(model, query, result):
+    """Ask AI to score the relevance of a result"""
+    if not model:
+        return 0
+
+    prompt = f"""<|im_start|>system
+You are a search result evaluator for Android mods and APKs. Rate the relevance of the search result to the user's query on a scale from 0 to 10.
+0 means completely irrelevant. 10 means perfect match (correct app, correct version/mod).
+Output ONLY the number.
+<|im_end|>
+<|im_start|>user
+Query: "{query}"
+Result Title: "{result.get('title', '')}"
+Result Body: "{result.get('body', '')}"
+<|im_end|>
+<|im_start|>assistant
+"""
+    try:
+        output = model(
+            prompt,
+            max_tokens=5,
+            stop=["<|im_end|>", "\n"],
+            echo=False
+        )
+        text = output['choices'][0]['text'].strip()
+        # Extract number
+        import re
+        match = re.search(r'\d+', text)
+        if match:
+            return int(match.group())
+        return 0
+    except Exception:
+        return 0
+
+def rank_results_with_ai(query, results):
+    """Rank all results using Qwen AI"""
+    if not AI_AVAILABLE:
+        return results
+
+    model = None
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console
+    ) as progress:
+        task1 = progress.add_task("[cyan]Loading AI Brain (Qwen 1.5B)...", total=None)
+        model = get_model()
+        progress.update(task1, visible=False)
+
+        if not model:
+            return results
+
+        task2 = progress.add_task(f"[magenta]AI Analyzing {len(results)} results...", total=len(results))
+
+        scored_results = []
+        for res in results:
+            score = evaluate_result(model, query, res)
+            res['ai_score'] = score
+            scored_results.append(res)
+            progress.advance(task2)
+
+    # Sort by score descending
+    scored_results.sort(key=lambda x: x.get('ai_score', 0), reverse=True)
+    return scored_results
+
 def search_site(query, site):
     """
     Performs a more precise search and filters the results for relevance.
@@ -66,7 +163,7 @@ def search_site(query, site):
         with DDGS() as ddgs:
             unfiltered_results = list(ddgs.text(search_query, max_results=10))
 
-        # Filter results
+        # Filter results (Basic keyword match)
         filtered_results = []
         for result in unfiltered_results:
             title = result.get('title', '').lower()
@@ -170,6 +267,12 @@ def main():
     console.print()
 
     if all_results:
+        # AI Re-ranking
+        if AI_AVAILABLE:
+            console.print(Panel("🧠 AI Re-ranking in progress... results may be reordered by relevance.", style="dim cyan"))
+            all_results = rank_results_with_ai(query, all_results)
+            console.print()
+
         # Create beautiful results table
         table = Table(
             title=f"✨ Search Results for '{query}' ✨",
@@ -185,13 +288,27 @@ def main():
         table.add_column("№", style="bold yellow", width=4, justify="center")
         table.add_column("📌 Title", style="bold white", no_wrap=False)
         table.add_column("🔗 Link", style="green", no_wrap=False)
+        if AI_AVAILABLE:
+            table.add_column("🤖 Score", style="bold magenta", justify="center")
 
         for idx, result in enumerate(all_results, 1):
-            table.add_row(
+            row_data = [
                 str(idx),
                 result['title'],
                 result['href']
-            )
+            ]
+            if AI_AVAILABLE:
+                score = result.get('ai_score', 0)
+                score_str = f"{score}/10"
+                if score >= 8:
+                    score_str = f"[bold green]{score}/10[/bold green]"
+                elif score >= 5:
+                    score_str = f"[yellow]{score}/10[/yellow]"
+                else:
+                    score_str = f"[red]{score}/10[/red]"
+                row_data.append(score_str)
+
+            table.add_row(*row_data)
 
         console.print(table)
         console.print()
